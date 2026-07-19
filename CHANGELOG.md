@@ -1,27 +1,25 @@
-# Changelog
+# 更新履歴
 
-All notable changes to Video HOK are documented in this file.
+Video HOKの主な変更内容を記録しています。
 
 ## [1.0.0] - 2026-07-20
 
-### Added
+### 追加
 
-- Windows NSIS installer with Start Menu registration and uninstall support
-- Standalone portable EXE build
-- Portable ZIP package with usage instructions
-- SHA-256 checksum files for all release artifacts
-- Separate installed and portable data storage modes
-- Portable storage for settings, data, logs, cache, temporary files, and
-  WebView data
-- Playback speed control with 0.25x, 0.5x, 1.0x, 1.5x, and 2.0x options
-- Keyboard playback, seek, and volume controls
-- Numeric volume display
+- スタートメニュー登録とアンインストールに対応したWindows NSISインストーラー
+- インストール不要の単体ポータブルEXE
+- 日本語の使用説明書を含むポータブルZIP
+- 全配布ファイルのSHA-256チェックサム
+- インストール版とポータブル版で分離されたデータ保存モード
+- ポータブル版の設定、データ、ログ、キャッシュ、一時ファイル、WebViewデータ保存
+- 0.25倍、0.5倍、1.0倍、1.5倍、2.0倍の再生速度調整
+- キーボードによる再生、一時停止、シーク、音量操作
+- 音量の数値表示
 
-### Changed
+### 変更
 
-- Promoted the application from the initial prototype to version 1.0.0
-- Preserved video aspect ratio for portrait, landscape, and square media
-- Kept normal-view controls outside the video area and fullscreen controls
-  available as an overlay
+- 初期試作版から正式版1.0.0へ更新
+- 縦長、横長、正方形の動画で元のアスペクト比を維持
+- 通常表示では動画領域外に操作部分を配置し、フルスクリーンでは重ねて操作可能に変更
 
 [1.0.0]: https://github.com/aki-sho/video-hok/releases/tag/v1.0.0

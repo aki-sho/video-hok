@@ -2,7 +2,7 @@
   "name": "video-hok",
   "displayName": "Video HOK",
   "version": "1.0.0",
-  "description": "Simple media player for Windows",
+  "description": "Windows向けのシンプルなメディアプレイヤー",
   "private": true,
   "type": "module",
   "scripts": {

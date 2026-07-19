@@ -1,26 +1,26 @@
 # Video HOK
 
-Video HOK (`video-hok`) is a small Windows media player built with Tauri and
-HTML/CSS/JavaScript.
+Video HOK (`video-hok`) は、TauriとHTML/CSS/JavaScriptで作られた
+Windows向けのシンプルなメディアプレイヤーです。
 
-Current version: `1.0.0`
+現在のバージョン: `1.0.0`
 
-## Features
+## 主な機能
 
-- Plays MP4, WebM, MP3, and WAV files
-- Play/pause, seek, volume, mute, playback speed, and fullscreen controls
-- Keyboard controls:
-  - `Space`: play/pause
-  - `Right Arrow`: seek forward 5 seconds
-  - `Left Arrow`: seek backward 5 seconds
-  - `Up Arrow`: increase volume by 1
-  - `Down Arrow`: decrease volume by 1
-- Preserves the source video's aspect ratio
-- Separate installed and portable data locations
+- MP4、WebM、MP3、WAVファイルの再生
+- 再生、一時停止、シーク、音量、ミュート、再生速度、フルスクリーン操作
+- キーボード操作
+  - `Space`: 再生・一時停止
+  - `右矢印`: 5秒進む
+  - `左矢印`: 5秒戻る
+  - `上矢印`: 音量を1上げる
+  - `下矢印`: 音量を1下げる
+- 元動画のアスペクト比を維持
+- インストール版とポータブル版のデータ保存先を分離
 
-## Data Locations
+## データの保存場所
 
-Installed build:
+インストール版:
 
 ```text
 %APPDATA%\video-hok\
@@ -32,10 +32,10 @@ Installed build:
 └─ WebView\
 ```
 
-Portable build:
+ポータブル版:
 
 ```text
-<portable EXE folder>\video-hok-PortableData\
+<ポータブルEXEのフォルダ>\video-hok-PortableData\
 ├─ config.json
 ├─ data\
 ├─ logs\
@@ -44,47 +44,46 @@ Portable build:
 └─ WebView\
 ```
 
-The installed and portable binaries are compiled as separate runtime modes.
-Portable behavior does not depend on the EXE filename.
+インストール版とポータブル版は、別々の動作モードとしてビルドされます。
+ポータブル版はEXEのファイル名を変更しても、EXEと同じフォルダにデータを保存します。
 
-## Development
+## 開発
 
-Requirements:
+必要な環境:
 
-- Windows 10 or later
-- Rust stable with the MSVC toolchain
-- Node.js and npm
+- Windows 10以降
+- Rust安定版とMSVCツールチェーン
+- Node.jsとnpm
 - Microsoft Edge WebView2 Runtime
 
-Install dependencies and run:
+依存パッケージをインストールして起動:
 
 ```powershell
 npm install
 npm run dev
 ```
 
-Run in portable development mode:
+ポータブルモードで開発起動:
 
 ```powershell
 npm run portable:dev
 ```
 
-## Windows Release
+## Windows向け配布ファイルの作成
 
-Generate the NSIS installer, standalone portable EXE, portable ZIP, and
-SHA-256 files:
+NSISインストーラー、単体ポータブルEXE、ポータブルZIP、SHA-256ファイルを生成:
 
 ```powershell
 npm run release:windows
 ```
 
-Verify an existing `dist` directory:
+既存の`dist`フォルダを検証:
 
 ```powershell
 npm run verify:release
 ```
 
-Release output:
+生成されるファイル:
 
 ```text
 dist\
@@ -96,7 +95,7 @@ dist\
 └─ video-hok-Portable-1.0.0.zip.sha256
 ```
 
-The portable ZIP contains:
+ポータブルZIPの内容:
 
 ```text
 video-hok-Portable-1.0.0\
@@ -104,16 +103,17 @@ video-hok-Portable-1.0.0\
 └─ README.txt
 ```
 
-## Release Publication
+## GitHub Release
 
-The release tag is `v1.0.0`. Release binaries are attached to the GitHub
-Release and are not committed to the repository.
+リリースタグは`v1.0.0`です。配布ファイルはGitHub Releaseに添付し、
+Gitリポジトリには直接保存していません。
 
-Project: https://github.com/aki-sho/video-hok
+プロジェクト: https://github.com/aki-sho/video-hok
 
-## License
+## ライセンス
 
-Copyright (c) 2026 aki-sho. All rights reserved. See [LICENSE](LICENSE).
+Copyright (c) 2026 aki-sho. All rights reserved.
+詳細は[LICENSE](LICENSE)を参照してください。
 
-Third-party software notices are listed in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+使用している第三者ソフトウェアについては
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)を参照してください。
