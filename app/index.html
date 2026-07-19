@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video HOK</title>
+    <script type="module" src="./main.js"></script>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <img src="./icon.png" alt="" class="brand-icon" />
+          <div>
+            <h1>Video HOK</h1>
+            <p id="fileName">ファイルを選択してください</p>
+          </div>
+        </div>
+        <label class="icon-button file-button" title="開く">
+          <input id="fileInput" type="file" accept=".mp4,.webm,.mp3,.wav,video/mp4,video/webm,audio/mpeg,audio/wav" />
+          <span aria-hidden="true">📁</span>
+        </label>
+      </header>
+
+      <section class="player-frame" id="playerFrame">
+        <video id="player" playsinline></video>
+        <button id="closeFullscreen" class="icon-button close-fullscreen" title="通常表示へ戻る" aria-label="通常表示へ戻る">×</button>
+        <footer class="controls">
+          <button id="playPause" class="icon-button primary" title="再生 / 一時停止" aria-label="再生 / 一時停止">▶</button>
+          <div class="time-block">
+            <span id="currentTime">00:00</span>
+            <input id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="シーク" />
+            <span id="duration">00:00</span>
+          </div>
+          <div class="volume-control">
+            <button id="mute" class="icon-button" title="ミュート" aria-label="ミュート">🔊</button>
+            <input id="volume" type="range" min="0" max="1" value="0.8" step="0.01" aria-label="音量" />
+            <output id="volumeValue" for="volume" aria-label="現在の音量">80</output>
+          </div>
+          <div class="speed-control">
+            <input id="playbackRate" type="range" min="0" max="4" value="2" step="1" list="playbackRates" aria-label="再生速度" />
+            <datalist id="playbackRates">
+              <option value="0"></option>
+              <option value="1"></option>
+              <option value="2"></option>
+              <option value="3"></option>
+              <option value="4"></option>
+            </datalist>
+            <output id="playbackRateValue" for="playbackRate" aria-label="現在の再生速度">1.0×</output>
+          </div>
+          <button id="fullscreen" class="icon-button" title="フルスクリーン" aria-label="フルスクリーン">⛶</button>
+        </footer>
+      </section>
+    </main>
+  </body>
+</html>

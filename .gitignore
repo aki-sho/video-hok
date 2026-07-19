@@ -1,0 +1,17 @@
+/node_modules/
+/dist/
+/dist-portable/
+/.release-stage/
+/.release-test/
+/src-tauri/target/
+/src-tauri/gen/
+
+*.pdb
+*.log
+config.json
+*-PortableData/
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
