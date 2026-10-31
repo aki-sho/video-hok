@@ -1,12 +1,18 @@
 [CmdletBinding()]
-param()
+param(
+    [switch]$AllowUnsigned,
+    [string]$ArtifactsDirectory
+)
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "signing.ps1")
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $package = Get-Content -Raw -LiteralPath (Join-Path $root "package.json") | ConvertFrom-Json
 $englishName = [string]$package.name
 $version = [string]$package.version
-$distPath = Join-Path $root "dist"
+$outputDirectory = if ($AllowUnsigned) { "dist-unsigned" } else { "dist" }
+$distPath = if ($ArtifactsDirectory) { $ArtifactsDirectory } else { Join-Path $root $outputDirectory }
+$expectedThumbprint = if ($AllowUnsigned) { "" } else { Get-ExpectedSigningThumbprint -Required }
 
 function Get-Sha256 {
     param([Parameter(Mandatory)][string]$Path)
@@ -74,6 +80,9 @@ $results = foreach ($artifactName in $artifactNames) {
     if ($item.Length -le 0) {
         throw "Artifact is empty: $artifactPath"
     }
+    if ($artifactName.EndsWith(".exe")) {
+        Assert-ReleaseSignature -Path $artifactPath -ExpectedThumbprint $expectedThumbprint -AllowUnsigned:$AllowUnsigned
+    }
 
     [pscustomobject]@{
         File = $artifactName
@@ -102,6 +111,26 @@ try {
     $unexpectedEntries = @($actualEntries | Where-Object { $_ -notin $expectedEntries })
     if ($missingEntries.Count -gt 0 -or $unexpectedEntries.Count -gt 0) {
         throw "Portable ZIP structure mismatch. Missing: $($missingEntries -join ', '); Unexpected: $($unexpectedEntries -join ', ')"
+    }
+    if ($actualEntries.Count -ne $expectedEntries.Count) {
+        throw "Portable ZIP contains duplicate entries."
+    }
+
+    # Checking only the outer EXE leaves a substituted EXE inside the ZIP undetected.
+    $portableEntry = $archive.Entries |
+        Where-Object { $_.FullName.Replace("\", "/") -eq "$zipRootName/$portableName" } |
+        Select-Object -First 1
+    $portableStream = $portableEntry.Open()
+    $zipHashAlgorithm = [Security.Cryptography.SHA256]::Create()
+    try {
+        $zipExeHash = ([BitConverter]::ToString($zipHashAlgorithm.ComputeHash($portableStream))).Replace("-", "").ToLowerInvariant()
+    }
+    finally {
+        $zipHashAlgorithm.Dispose()
+        $portableStream.Dispose()
+    }
+    if ($zipExeHash -ne (Get-Sha256 -Path (Join-Path $distPath $portableName))) {
+        throw "The portable EXE in the ZIP does not match the verified standalone EXE."
     }
 
     $readmeEntry = $archive.Entries |
@@ -139,4 +168,8 @@ finally {
 }
 
 $results | Format-Table -AutoSize
-Write-Output "Release verification passed."
+if ($AllowUnsigned) {
+    Write-Output "Unsigned local test build verification passed. These artifacts are not signed releases."
+} else {
+    Write-Output "Signed release verification passed."
+}

@@ -1,9 +1,11 @@
 # Video HOK
 
+> 最新バージョン: 1.0.1（2026-10-31）。ローカルの未公開変更を反映し、ソースと配布物を揃えた同期リリースです。
+
 Video HOK (`video-hok`) は、TauriとHTML/CSS/JavaScriptで作られた
 Windows向けのシンプルなメディアプレイヤーです。
 
-現在のバージョン: `1.0.0`
+現在のバージョン: `1.0.1`
 
 ## 主な機能
 
@@ -71,35 +73,73 @@ npm run portable:dev
 
 ## Windows向け配布ファイルの作成
 
-NSISインストーラー、単体ポータブルEXE、ポータブルZIP、SHA-256ファイルを生成:
+正式配布では、Windows証明書ストアのコード署名証明書とWindows SDKの
+SignToolが必要です。証明書の拇印を設定してからビルドしてください。
+秘密鍵やパスワードはリポジトリに保存しません。
 
 ```powershell
+$env:VIDEO_HOK_SIGNING_THUMBPRINT = "証明書の40桁の拇印"
 npm run release:windows
 ```
 
-既存の`dist`フォルダを検証:
+標準は`Cert:\CurrentUser\My`を使用します。証明書が`LocalMachine`にある場合は
+`VIDEO_HOK_SIGNING_STORE=LocalMachine`を指定してください。
+SignToolを自動検出できない場合は`VIDEO_HOK_SIGNTOOL_PATH`を指定します。
+タイムスタンプはRFC 3161 / SHA-256を使用し、サーバーは
+`VIDEO_HOK_TIMESTAMP_URL`で変更できます（標準: `http://timestamp.digicert.com`）。
+
+NSIS内のアプリ、インストーラー、ポータブルEXEに署名します。
+ZIPとチェックサムは署名後に生成します。
+証明書が未設定の場合は、既存の`dist`を変更する前に停止します。
+
+既存の`dist`フォルダを検証（同じ証明書の拇印を設定）:
 
 ```powershell
 npm run verify:release
 ```
 
+SHA-256に加え、信頼されたAuthenticode署名、指定した署名者、タイムスタンプ、
+ZIP内と単体配布のポータブルEXEが一致することを検証します。
+
+証明書がない環境でのローカル動作確認用:
+
+```powershell
+npm run release:windows:unsigned
+npm run verify:release:unsigned
+```
+
+未署名の確認用ファイルは`dist-unsigned`へ出力され、正式配布用の`dist`と分離します。
+`npm run build`や`npm run portable:build`による単体ビルドも、正式配布の署名検証を
+実行しません。正式配布には`release:windows`を使用してください。
+
+セキュリティ改修の検証:
+
+```powershell
+cargo test --manifest-path src-tauri/Cargo.toml --locked
+npm run test:release
+```
+
+`test:release`は`dist-unsigned`の確認用ビルドを使い、未署名の正式配布、
+チェックサム不一致、ZIP内EXEの差し替え、重複エントリ、署名者やタイムスタンプの
+不備を拒否することを検証します。
+
 生成されるファイル:
 
 ```text
 dist\
-├─ video-hok-Setup-1.0.0.exe
-├─ video-hok-Setup-1.0.0.exe.sha256
-├─ video-hok-Portable-1.0.0.exe
-├─ video-hok-Portable-1.0.0.exe.sha256
-├─ video-hok-Portable-1.0.0.zip
-└─ video-hok-Portable-1.0.0.zip.sha256
+├─ video-hok-Setup-1.0.1.exe
+├─ video-hok-Setup-1.0.1.exe.sha256
+├─ video-hok-Portable-1.0.1.exe
+├─ video-hok-Portable-1.0.1.exe.sha256
+├─ video-hok-Portable-1.0.1.zip
+└─ video-hok-Portable-1.0.1.zip.sha256
 ```
 
 ポータブルZIPの内容:
 
 ```text
 video-hok-Portable-1.0.0\
-├─ video-hok-Portable-1.0.0.exe
+├─ video-hok-Portable-1.0.1.exe
 └─ README.txt
 ```
 

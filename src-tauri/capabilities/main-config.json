@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-config",
+  "description": "Allow only the bundled main window to read and save player settings.",
+  "local": true,
+  "windows": ["main"],
+  "permissions": ["allow-load-config", "allow-save-config"]
+}

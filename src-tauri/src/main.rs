@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{
     env, fs,
+    io::Read,
     path::{Path, PathBuf},
 };
 use tauri::{State, WebviewUrl, WebviewWindowBuilder};
@@ -8,6 +9,8 @@ use tauri::{State, WebviewUrl, WebviewWindowBuilder};
 const DISPLAY_NAME: &str = "Video HOK";
 const ENGLISH_NAME: &str = env!("CARGO_PKG_NAME");
 const PORTABLE_DATA_SUFFIX: &str = "PortableData";
+const PLAYBACK_RATES: [f64; 5] = [0.25, 0.5, 1.0, 1.5, 2.0];
+const MAX_CONFIG_BYTES: u64 = 4096;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -16,6 +19,18 @@ struct AppConfig {
     muted: bool,
     #[serde(rename = "playbackRate")]
     playback_rate: f64,
+}
+
+impl AppConfig {
+    fn validate(&self) -> Result<(), String> {
+        if !self.volume.is_finite() || !(0.0..=1.0).contains(&self.volume) {
+            return Err("音量は0から1の有限値で指定してください".to_string());
+        }
+        if !PLAYBACK_RATES.contains(&self.playback_rate) {
+            return Err("対応していない再生速度です".to_string());
+        }
+        Ok(())
+    }
 }
 
 impl Default for AppConfig {
@@ -97,6 +112,7 @@ fn configure_portable_environment(paths: &AppPaths) {
 }
 
 fn write_config(path: &Path, config: &AppConfig) -> Result<(), String> {
+    config.validate()?;
     let text = serde_json::to_string_pretty(config).map_err(|error| error.to_string())?;
     fs::write(path, format!("{text}\n")).map_err(|error| error.to_string())
 }
@@ -110,8 +126,22 @@ fn load_config(paths: State<'_, AppPaths>) -> Result<AppConfig, String> {
         return Ok(config);
     }
 
-    let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
-    serde_json::from_str(&text).map_err(|error| error.to_string())
+    read_config(&path)
+}
+
+fn read_config(path: &Path) -> Result<AppConfig, String> {
+    let mut text = String::new();
+    fs::File::open(path)
+        .map_err(|error| error.to_string())?
+        .take(MAX_CONFIG_BYTES + 1)
+        .read_to_string(&mut text)
+        .map_err(|error| error.to_string())?;
+    if text.len() as u64 > MAX_CONFIG_BYTES {
+        return Err("設定ファイルが大きすぎます".to_string());
+    }
+    let config: AppConfig = serde_json::from_str(&text).map_err(|error| error.to_string())?;
+    config.validate()?;
+    Ok(config)
 }
 
 #[tauri::command]
@@ -151,5 +181,124 @@ fn run() -> Result<(), String> {
 fn main() {
     if let Err(error) = run() {
         eprintln!("video-hok startup failed: {error}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tauri::ipc::Origin;
+
+    static NEXT_TEST: AtomicUsize = AtomicUsize::new(0);
+
+    struct TestFile(PathBuf);
+
+    impl TestFile {
+        fn new() -> Self {
+            Self(env::temp_dir().join(format!(
+                "video-hok-config-{}-{}.json",
+                std::process::id(),
+                NEXT_TEST.fetch_add(1, Ordering::Relaxed)
+            )))
+        }
+    }
+
+    impl Drop for TestFile {
+        fn drop(&mut self) {
+            let _ = fs::remove_file(&self.0);
+        }
+    }
+
+    #[test]
+    fn accepts_supported_settings_and_volume_boundaries() {
+        for volume in [0.0, 0.8, 1.0] {
+            for playback_rate in PLAYBACK_RATES {
+                assert!(AppConfig {
+                    volume,
+                    playback_rate,
+                    muted: true
+                }
+                .validate()
+                .is_ok());
+            }
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_numbers_and_unsupported_playback_rates() {
+        for volume in [-0.01, 1.01, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(AppConfig {
+                volume,
+                ..AppConfig::default()
+            }
+            .validate()
+            .is_err());
+        }
+        for playback_rate in [0.0, -1.0, 0.75, 3.0, f64::NAN, f64::INFINITY] {
+            assert!(AppConfig {
+                playback_rate,
+                ..AppConfig::default()
+            }
+            .validate()
+            .is_err());
+        }
+    }
+
+    #[test]
+    fn invalid_save_preserves_existing_settings() {
+        let file = TestFile::new();
+        write_config(&file.0, &AppConfig::default()).unwrap();
+        let original = fs::read(&file.0).unwrap();
+        assert!(write_config(
+            &file.0,
+            &AppConfig {
+                volume: 5.0,
+                ..AppConfig::default()
+            }
+        )
+        .is_err());
+        assert_eq!(fs::read(&file.0).unwrap(), original);
+    }
+
+    #[test]
+    fn rejects_invalid_or_oversized_settings_on_load() {
+        let file = TestFile::new();
+        for text in [
+            r#"{"volume":2}"#.to_string(),
+            r#"{"playbackRate":100}"#.to_string(),
+            r#"{"muted":"yes"}"#.to_string(),
+            "{".to_string(),
+            " ".repeat(MAX_CONFIG_BYTES as usize + 1),
+        ] {
+            fs::write(&file.0, text).unwrap();
+            assert!(read_config(&file.0).is_err());
+        }
+        fs::write(&file.0, "{}").unwrap();
+        assert_eq!(read_config(&file.0).unwrap().volume, 0.8);
+    }
+
+    #[test]
+    fn config_commands_are_local_and_main_window_only() {
+        // Use the actual compiled ACL, rather than a separate test policy.
+        let mut context: tauri::Context<tauri::Wry> = tauri::generate_context!();
+        let authority = context.runtime_authority_mut();
+        let remote = Origin::Remote {
+            url: "https://example.com".parse().unwrap(),
+        };
+        for command in ["load_config", "save_config"] {
+            assert!(authority
+                .resolve_access(command, "main", "main", &Origin::Local)
+                .is_some());
+            assert!(authority
+                .resolve_access(command, "other", "other", &Origin::Local)
+                .is_none());
+            assert!(authority
+                .resolve_access(command, "main", "main", &remote)
+                .is_none());
+        }
+        assert!(authority
+            .resolve_access("plugin:fs|read_file", "main", "main", &Origin::Local)
+            .is_none());
     }
 }

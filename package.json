@@ -1,7 +1,7 @@
 {
   "name": "video-hok",
   "displayName": "Video HOK",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Windows向けのシンプルなメディアプレイヤー",
   "private": true,
   "type": "module",
@@ -11,7 +11,10 @@
     "portable:dev": "cargo run --manifest-path src-tauri/Cargo.toml --features portable",
     "portable:build": "cargo build --manifest-path src-tauri/Cargo.toml --release --features portable",
     "release:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-release.ps1",
-    "verify:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-release.ps1"
+    "release:windows:unsigned": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-release.ps1 -AllowUnsigned",
+    "verify:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-release.ps1",
+    "verify:release:unsigned": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-release.ps1 -AllowUnsigned",
+    "test:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-release.ps1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"

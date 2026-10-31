@@ -1,7 +1,8 @@
 [CmdletBinding()]
-param()
+param([switch]$AllowUnsigned)
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "signing.ps1")
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $packagePath = Join-Path $root "package.json"
 $tauriConfigPath = Join-Path $root "src-tauri\tauri.conf.json"
@@ -43,7 +44,12 @@ if ($cargoManifest -notmatch "(?m)^version\s*=\s*`"$([regex]::Escape($version))`
     throw "package.json and Cargo.toml versions do not match."
 }
 
-$distPath = Join-Path $root "dist"
+# Fail before replacing existing artifacts when signing credentials are absent.
+$signingOptions = $null
+if (-not $AllowUnsigned) { $signingOptions = Get-WindowsSigningOptions }
+$outputDirectory = if ($AllowUnsigned) { "dist-unsigned" } else { "dist" }
+$distPath = Join-Path $root $outputDirectory
+$signingConfigPath = Join-Path $root "src-tauri\.release-signing.json"
 if (Test-Path -LiteralPath $distPath) {
     $resolvedDist = (Resolve-Path -LiteralPath $distPath).Path
     $rootPrefix = $root.TrimEnd("\") + "\"
@@ -56,7 +62,21 @@ New-Item -ItemType Directory -Path $distPath | Out-Null
 
 Push-Location $root
 try {
-    & npm.cmd run build -- --bundles nsis
+    $buildArguments = @("run", "build", "--", "--bundles", "nsis")
+    if ($signingOptions) {
+        # Object notation keeps paths containing spaces out of shell parsing.
+        $signingConfig = @{
+            bundle = @{ windows = @{ signCommand = @{
+                cmd = "powershell.exe"
+                args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                    (Join-Path $PSScriptRoot "sign-windows.ps1"), "-Path", "%1")
+            } } }
+        } | ConvertTo-Json -Depth 8
+        [IO.File]::WriteAllText($signingConfigPath, $signingConfig, [Text.UTF8Encoding]::new($false))
+        $buildArguments += @("--config", $signingConfigPath)
+    }
+    $buildArguments += @("--", "--locked")
+    & npm.cmd @buildArguments
     if ($LASTEXITCODE -ne 0) {
         throw "Tauri NSIS build failed with exit code $LASTEXITCODE."
     }
@@ -77,8 +97,11 @@ try {
     $zipPath = Join-Path $distPath $zipName
 
     Copy-Item -LiteralPath $installerSource.FullName -Destination $setupPath
+    if ($signingOptions) {
+        Assert-ReleaseSignature -Path $setupPath -ExpectedThumbprint $signingOptions.Thumbprint
+    }
 
-    & cargo build --manifest-path $cargoManifestPath --release --features portable
+    & cargo build --manifest-path $cargoManifestPath --release --features portable --locked
     if ($LASTEXITCODE -ne 0) {
         throw "Portable Cargo build failed with exit code $LASTEXITCODE."
     }
@@ -88,6 +111,9 @@ try {
         throw "The portable executable was not found at $portableSource."
     }
     Copy-Item -LiteralPath $portableSource -Destination $portablePath
+    if ($signingOptions) {
+        Invoke-WindowsSigning -Path $portablePath -Options $signingOptions
+    }
 
     $stagePath = Join-Path $root ".release-stage"
     if (Test-Path -LiteralPath $stagePath) {
@@ -110,6 +136,9 @@ try {
         Replace("{{VERSION}}", $version).
         Replace("{{PORTABLE_EXE}}", $portableName).
         Replace("{{PORTABLE_DATA}}", $portableDataName)
+    if ($AllowUnsigned) {
+        $portableReadme = "UNSIGNED LOCAL TEST BUILD - NOT FOR DISTRIBUTION`r`n`r`n$portableReadme"
+    }
     [IO.File]::WriteAllText(
         (Join-Path $zipRootPath "README.txt"),
         $portableReadme,
@@ -117,7 +146,12 @@ try {
     )
 
     Compress-Archive -LiteralPath $zipRootPath -DestinationPath $zipPath -CompressionLevel Optimal
-    Remove-Item -LiteralPath $stagePath -Recurse -Force
+    $resolvedStage = (Resolve-Path -LiteralPath $stagePath).Path
+    $rootPrefix = $root.TrimEnd("\") + "\"
+    if (-not $resolvedStage.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to remove a staging directory outside the project root."
+    }
+    Remove-Item -LiteralPath $resolvedStage -Recurse -Force
 
     foreach ($artifactPath in @($setupPath, $portablePath, $zipPath)) {
         $artifact = Get-Item -LiteralPath $artifactPath
@@ -130,8 +164,11 @@ try {
         )
     }
 
-    & (Join-Path $PSScriptRoot "verify-release.ps1")
+    & (Join-Path $PSScriptRoot "verify-release.ps1") -AllowUnsigned:$AllowUnsigned
 }
 finally {
+    if (Test-Path -LiteralPath $signingConfigPath) {
+        Remove-Item -LiteralPath $signingConfigPath -Force
+    }
     Pop-Location
 }
