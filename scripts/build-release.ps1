@@ -39,7 +39,7 @@ if ($tauriConfig.productName -ne $displayName -or $tauriConfig.version -ne $vers
     throw "package.json and tauri.conf.json name/version values do not match."
 }
 
-$cargoManifest = Get-Content -Raw -LiteralPath $cargoManifestPath
+$cargoManifest = (Get-Content -Raw -LiteralPath $cargoManifestPath).Replace("`r`n", "`n")
 if ($cargoManifest -notmatch "(?m)^version\s*=\s*`"$([regex]::Escape($version))`"$") {
     throw "package.json and Cargo.toml versions do not match."
 }
